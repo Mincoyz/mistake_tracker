@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mistake Tracker</title>
+<style>
+  html{ background:#191919; }
+  :root{
+    --bg:#141414;
+    --card:#1c1c1c;
+    --card-2:#202020;
+    --card-3:#232323;
+    --border:#2b2b2b;
+    --text:#f2f2f2;
+    --muted:#9a9a9a;
+    --orange:#f5a623;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:#191919;
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:16px 12px;
+    font-size:14px;
+  }
+  .app{ max-width:880px; margin:0 auto; }
+
+  .main-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .today-count{ font-size:26px; font-weight:800; line-height:1; }
+  .today-label{ font-size:11.5px; color:var(--muted); margin-top:3px; }
+  .today-tags{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .today-tag{
+    border:1px solid var(--orange);
+    color:var(--orange);
+    background:rgba(245,166,35,0.08);
+    font-size:11px;
+    font-weight:700;
+    padding:4px 10px;
+    border-radius:999px;
+  }
+
+  .body-grid{
+    display:grid;
+    grid-template-columns:190px 1fr 140px;
+    gap:14px;
+  }
+  @media (max-width:900px){
+    .body-grid{ grid-template-columns:1fr; }
+  }
+
+  .log-label{ font-size:10px; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:8px; }
+  .log-grid{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .log-btn-wrap{ display:flex; flex-direction:column; align-items:center; }
+  .log-btn{
+    width:100%;
+    background:var(--card-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:8px;
+    padding:8px 6px;
+    font-size:11.5px;
+    font-weight:600;
+    cursor:pointer;
+    text-align:center;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .log-btn:hover{ border-color:#3a3a3a; }
+  .log-btn.hit{
+    border-color:var(--orange);
+    background:rgba(245,166,35,0.08);
+  }
+  .badge{
+    margin-top:4px;
+    font-size:10.5px;
+    color:var(--orange);
+    font-weight:700;
+    display:none;
+    align-items:center;
+    gap:4px;
+    cursor:pointer;
+    background:none;
+    border:none;
+  }
+  .badge.show{ display:inline-flex; }
+  .badge .x{ font-weight:900; }
+
+  .bars-wrap{ padding-top:2px; }
+  .bar-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .bar-row:last-child{ margin-bottom:0; }
+  .bar-label{ width:68px; flex:0 0 auto; font-size:12px; color:var(--text); }
+  .bar-row.zero .bar-label{ color:#555; }
+  .bar-track{ flex:1; height:5px; background:var(--card-2); border-radius:999px; overflow:hidden; }
+  .bar-fill{ height:100%; background:var(--orange); border-radius:999px; transition:width .3s ease; }
+  .bar-count{ width:18px; flex:0 0 auto; text-align:right; font-size:12px; color:var(--text); }
+  .bar-row.zero .bar-count{ color:transparent; }
+
+  .stats-col{ display:flex; flex-direction:column; gap:7px; }
+  .stat-box{
+    background:var(--card-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:9px 11px;
+  }
+  .stat-box.highlight{ background:var(--orange); border-color:var(--orange); }
+  .stat-box.highlight .stat-num, .stat-box.highlight .stat-label{ color:#1a1200; }
+  .stat-num{ font-size:16px; font-weight:800; }
+  .stat-label{ font-size:10px; color:var(--muted); margin-top:1px; }
+  .settings-btn{
+    background:var(--card-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:10px;
+    padding:8px 11px;
+    font-size:11.5px;
+    font-weight:600;
+    cursor:pointer;
+    text-align:center;
+  }
+  .settings-panel{
+    display:none;
+    background:var(--card-3);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:6px;
+    flex-direction:column;
+    gap:4px;
+  }
+  .settings-panel.show{ display:flex; }
+  .settings-panel button{
+    background:none; border:none; color:var(--text);
+    font-size:11px; text-align:left; padding:6px; border-radius:5px; cursor:pointer;
+  }
+  .settings-panel button:hover{ background:var(--card-2); }
+  .settings-panel button.danger{ color:#ff5c5c; }
+
+  .section-label{
+    font-size:10px; letter-spacing:0.08em; color:var(--muted); font-weight:700;
+    margin:18px 0 8px;
+  }
+  .meaning-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+  @media (max-width:700px){ .meaning-grid{ grid-template-columns:1fr; } }
+  .meaning-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-left:3px solid var(--orange);
+    border-radius:7px;
+    padding:9px 11px;
+  }
+  .meaning-title{ font-weight:700; font-size:12px; margin-bottom:2px; }
+  .meaning-desc{ font-size:11px; color:var(--muted); line-height:1.35; }
+
+  .footer-note{
+    background:rgba(245,166,35,0.1);
+    border:1px solid rgba(245,166,35,0.3);
+    color:var(--orange);
+    border-radius:9px;
+    padding:10px 12px;
+    font-size:11.5px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="main-card">
+    <div class="top-row">
+      <div>
+        <div class="today-count" id="todayCount">0</div>
+        <div class="today-label">mistakes today</div>
+      </div>
+      <div class="today-tags" id="todayTags"></div>
+    </div>
+
+    <div class="body-grid">
+
+      <div>
+        <div class="log-label">LOG MISTAKE</div>
+        <div class="log-grid" id="logGrid"></div>
+      </div>
+
+      <div class="bars-wrap" id="barsWrap"></div>
+
+      <div class="stats-col">
+        <div class="stat-box highlight">
+          <div class="stat-num" id="statMonthName">–</div>
+          <div class="stat-label">Current month</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statMonthTotal">0</div>
+          <div class="stat-label">This month</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statDailyAvg">0</div>
+          <div class="stat-label">Daily avg</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statMostCommon">–</div>
+          <div class="stat-label">Most common</div>
+        </div>
+        <button class="settings-btn" onclick="toggleSettings()">⚙ Settings</button>
+        <div class="settings-panel" id="settingsPanel">
+          <button onclick="resetMonth()">Reset this month's data</button>
+          <button class="danger" onclick="resetAll()">Clear all data</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="section-label">WHAT EACH TAG MEANS</div>
+  <div class="meaning-grid" id="meaningGrid"></div>
+
+  <div class="footer-note">
+    Log the mistake the moment you close the trade. Not at the end of the day — by then you've already rewritten what happened.
+  </div>
+
+</div>
+
+<script>
+const TYPES = [
+  { key:'No plan',    desc:"You entered without knowing where you'd exit." },
+  { key:'Revenge',     desc:"You entered again because the last one lost, not because the setup was there." },
+  { key:'Overtrading', desc:"You kept going past your limit, looking for something to be in." },
+  { key:'Moved SL',    desc:"You widened the stop to avoid being wrong." },
+  { key:'Oversize',    desc:"The position was bigger than your rule allows." },
+  { key:'FOMO',        desc:"You entered because price was moving, not because your setup appeared." },
+  { key:'Early exit',  desc:"You closed before your target because it felt uncomfortable." },
+  { key:'Late entry',  desc:"The move already happened and you chased it." }
+];
+const STORAGE_KEY = 'flowtrade_mistake_log';
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function loadLog(){
+  try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch(e){ return []; }
+}
+function saveLog(log){ localStorage.setItem(STORAGE_KEY, JSON.stringify(log)); }
+
+function todayKey(d){ return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); }
+function monthKey(d){ return d.getFullYear()+'-'+d.getMonth(); }
+
+function logMistake(type){
+  const log = loadLog();
+  log.push({ type, ts: Date.now() });
+  saveLog(log);
+  render();
+}
+function undoMistake(type){
+  const log = loadLog();
+  const now = new Date();
+  const tKey = todayKey(now);
+  for (let i = log.length - 1; i >= 0; i--){
+    if (log[i].type === type && todayKey(new Date(log[i].ts)) === tKey){
+      log.splice(i, 1);
+      break;
+    }
+  }
+  saveLog(log);
+  render();
+}
+function resetMonth(){
+  if (!confirm("Xóa toàn bộ log của tháng này?")) return;
+  const now = new Date();
+  const mKey = monthKey(now);
+  const log = loadLog().filter(e => monthKey(new Date(e.ts)) !== mKey);
+  saveLog(log);
+  toggleSettings();
+  render();
+}
+function resetAll(){
+  if (!confirm("Xóa TOÀN BỘ dữ liệu Mistake Tracker? Không thể hoàn tác.")) return;
+  saveLog([]);
+  toggleSettings();
+  render();
+}
+function toggleSettings(){
+  document.getElementById('settingsPanel').classList.toggle('show');
+}
+
+function buildLogButtons(){
+  const grid = document.getElementById('logGrid');
+  grid.innerHTML = '';
+  TYPES.forEach(t => {
+    const wrap = document.createElement('div');
+    wrap.className = 'log-btn-wrap';
+    wrap.innerHTML = `
+      <button class="log-btn" data-type="${t.key}" onclick="logMistake('${t.key}')">${t.key}</button>
+      <button class="badge" data-type-badge="${t.key}" onclick="undoMistake('${t.key}')">
+        <span class="cnt">0</span> <span class="x">×</span>
+      </button>
+    `;
+    grid.appendChild(wrap);
+  });
+}
+
+function buildMeaningCards(){
+  const grid = document.getElementById('meaningGrid');
+  grid.innerHTML = '';
+  // display order: No Plan, Revenge, Overtrading, Moved SL, Oversize, FOMO, Early Exit, Late Entry (2 columns, matches screenshot pairing)
+  const order = ['No plan','Revenge','Overtrading','Moved SL','Oversize','FOMO','Early exit','Late entry'];
+  order.forEach(key => {
+    const t = TYPES.find(x => x.key === key);
+    const card = document.createElement('div');
+    card.className = 'meaning-card';
+    const titleCase = key.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1));
+    card.innerHTML = `<div class="meaning-title">${titleCase}</div><div class="meaning-desc">${t.desc}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+function render(){
+  const log = loadLog();
+  const now = new Date();
+  const tKey = todayKey(now);
+  const mKey = monthKey(now);
+
+  const todayEntries = log.filter(e => todayKey(new Date(e.ts)) === tKey);
+  const monthEntries = log.filter(e => monthKey(new Date(e.ts)) === mKey);
+
+  // today count + tags
+  document.getElementById('todayCount').textContent = todayEntries.length;
+  const todayCounts = {};
+  todayEntries.forEach(e => { todayCounts[e.type] = (todayCounts[e.type]||0) + 1; });
+  const tagsWrap = document.getElementById('todayTags');
+  tagsWrap.innerHTML = '';
+  Object.keys(todayCounts).forEach(type => {
+    const tag = document.createElement('span');
+    tag.className = 'today-tag';
+    tag.textContent = type + ' ×' + todayCounts[type];
+    tagsWrap.appendChild(tag);
+  });
+
+  // highlight buttons + badges based on today's counts
+  TYPES.forEach(t => {
+    const btn = document.querySelector(`.log-btn[data-type="${t.key}"]`);
+    const badge = document.querySelector(`.badge[data-type-badge="${t.key}"]`);
+    const c = todayCounts[t.key] || 0;
+    btn.classList.toggle('hit', c > 0);
+    badge.classList.toggle('show', c > 0);
+    badge.querySelector('.cnt').textContent = c;
+  });
+
+  // month counts for bars
+  const monthCounts = {};
+  TYPES.forEach(t => monthCounts[t.key] = 0);
+  monthEntries.forEach(e => { monthCounts[e.type] = (monthCounts[e.type]||0) + 1; });
+
+  const sorted = TYPES.map(t => ({ key:t.key, count: monthCounts[t.key] }))
+                       .sort((a,b) => b.count - a.count);
+  const maxCount = Math.max(1, sorted[0].count);
+
+  const barsWrap = document.getElementById('barsWrap');
+  barsWrap.innerHTML = '';
+  sorted.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'bar-row' + (item.count === 0 ? ' zero' : '');
+    const pct = item.count === 0 ? 4 : Math.round((item.count / maxCount) * 100);
+    row.innerHTML = `
+      <div class="bar-label">${item.key}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%; ${item.count===0?'background:#333;':''}"></div></div>
+      <div class="bar-count">${item.count}</div>
+    `;
+    barsWrap.appendChild(row);
+  });
+
+  // right stat cards
+  const monthTotal = monthEntries.length;
+  document.getElementById('statMonthName').textContent = MONTH_NAMES[now.getMonth()];
+  document.getElementById('statMonthTotal').textContent = monthTotal;
+  const dayOfMonth = now.getDate();
+  const avg = dayOfMonth > 0 ? (monthTotal / dayOfMonth) : 0;
+  document.getElementById('statDailyAvg').textContent = avg.toFixed(1);
+  const mostCommon = sorted[0].count > 0 ? sorted[0].key : '–';
+  document.getElementById('statMostCommon').textContent = mostCommon;
+}
+
+buildLogButtons();
+buildMeaningCards();
+render();
+</script>
+</body>
+</html>
