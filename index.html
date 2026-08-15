@@ -148,6 +148,11 @@
   }
   .settings-panel button:hover{ background:var(--card-2); }
   .settings-panel button.danger{ color:#ff5c5c; }
+  .settings-panel button.confirming{
+    background:#ff5c5c;
+    color:#1a0a0a;
+    font-weight:700;
+  }
 
   .section-label{
     font-size:10px; letter-spacing:0.08em; color:var(--muted); font-weight:700;
@@ -215,8 +220,8 @@
         </div>
         <button class="settings-btn" onclick="toggleSettings()">⚙ Settings</button>
         <div class="settings-panel" id="settingsPanel">
-          <button onclick="resetMonth()">Reset this month's data</button>
-          <button class="danger" onclick="resetAll()">Clear all data</button>
+          <button id="btnResetMonth" onclick="handleReset('month')">Reset this month's data</button>
+          <button id="btnResetAll" class="danger" onclick="handleReset('all')">Clear all data</button>
         </div>
       </div>
 
@@ -274,23 +279,51 @@ function undoMistake(type){
   saveLog(log);
   render();
 }
-function resetMonth(){
-  if (!confirm("Xóa toàn bộ log của tháng này?")) return;
-  const now = new Date();
-  const mKey = monthKey(now);
-  const log = loadLog().filter(e => monthKey(new Date(e.ts)) !== mKey);
-  saveLog(log);
-  toggleSettings();
+let armedAction = null;
+let armedTimer = null;
+
+function disarm(){
+  if (armedAction){
+    const btn = document.getElementById(armedAction === 'month' ? 'btnResetMonth' : 'btnResetAll');
+    if (btn){
+      btn.textContent = btn.dataset.originalText;
+      btn.classList.remove('confirming');
+    }
+  }
+  armedAction = null;
+  clearTimeout(armedTimer);
+}
+
+function handleReset(scope){
+  const btn = document.getElementById(scope === 'month' ? 'btnResetMonth' : 'btnResetAll');
+
+  if (armedAction !== scope){
+    disarm();
+    armedAction = scope;
+    btn.dataset.originalText = btn.textContent;
+    btn.textContent = 'Bấm lần nữa để xác nhận';
+    btn.classList.add('confirming');
+    armedTimer = setTimeout(disarm, 4000);
+    return;
+  }
+
+  // second click within 4s -> actually execute
+  if (scope === 'month'){
+    const now = new Date();
+    const mKey = monthKey(now);
+    const log = loadLog().filter(e => monthKey(new Date(e.ts)) !== mKey);
+    saveLog(log);
+  } else {
+    saveLog([]);
+  }
+  disarm();
+  document.getElementById('settingsPanel').classList.remove('show');
   render();
 }
-function resetAll(){
-  if (!confirm("Xóa TOÀN BỘ dữ liệu Mistake Tracker? Không thể hoàn tác.")) return;
-  saveLog([]);
-  toggleSettings();
-  render();
-}
+
 function toggleSettings(){
   document.getElementById('settingsPanel').classList.toggle('show');
+  disarm();
 }
 
 function buildLogButtons(){
