@@ -109,6 +109,30 @@
   .bar-fill{ height:100%; background:var(--orange); border-radius:999px; transition:width .3s ease; }
   .bar-count{ width:18px; flex:0 0 auto; text-align:right; font-size:12px; color:var(--text); }
   .bar-row.zero .bar-count{ color:transparent; }
+  .bar-controls{ display:flex; gap:3px; flex:0 0 auto; }
+  .bar-row.zero .bar-controls{ visibility:hidden; }
+  .bar-btn{
+    width:18px; height:18px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--card-2);
+    border:1px solid var(--border);
+    color:var(--muted);
+    border-radius:5px;
+    font-size:11px;
+    line-height:1;
+    cursor:pointer;
+    padding:0;
+  }
+  .bar-btn:hover{ color:var(--text); border-color:#3a3a3a; }
+  .bar-btn.confirming{
+    background:#ff5c5c;
+    border-color:#ff5c5c;
+    color:#1a0a0a;
+    font-weight:700;
+    width:auto;
+    padding:0 5px;
+    font-size:9.5px;
+  }
 
   .stats-col{ display:flex; flex-direction:column; gap:7px; }
   .stat-box{
@@ -220,8 +244,8 @@
         </div>
         <button class="settings-btn" onclick="toggleSettings()">⚙ Settings</button>
         <div class="settings-panel" id="settingsPanel">
-          <button id="btnResetMonth" onclick="handleReset('month')">Reset this month's data</button>
-          <button id="btnResetAll" class="danger" onclick="handleReset('all')">Clear all data</button>
+          <button id="btnResetMonth" onclick="handleReset('month', this)">Reset this month's data</button>
+          <button id="btnResetAll" class="danger" onclick="handleReset('all', this)">Clear all data</button>
         </div>
       </div>
 
@@ -280,45 +304,67 @@ function undoMistake(type){
   render();
 }
 let armedAction = null;
+let armedBtn = null;
 let armedTimer = null;
 
 function disarm(){
-  if (armedAction){
-    const btn = document.getElementById(armedAction === 'month' ? 'btnResetMonth' : 'btnResetAll');
-    if (btn){
-      btn.textContent = btn.dataset.originalText;
-      btn.classList.remove('confirming');
-    }
+  if (armedBtn){
+    armedBtn.textContent = armedBtn.dataset.originalText;
+    armedBtn.classList.remove('confirming');
   }
   armedAction = null;
+  armedBtn = null;
   clearTimeout(armedTimer);
 }
 
-function handleReset(scope){
-  const btn = document.getElementById(scope === 'month' ? 'btnResetMonth' : 'btnResetAll');
-
-  if (armedAction !== scope){
+function armOrConfirm(key, btn, confirmText, onConfirm){
+  if (armedAction !== key){
     disarm();
-    armedAction = scope;
+    armedAction = key;
+    armedBtn = btn;
     btn.dataset.originalText = btn.textContent;
-    btn.textContent = 'Bấm lần nữa để xác nhận';
+    btn.textContent = confirmText;
     btn.classList.add('confirming');
     armedTimer = setTimeout(disarm, 4000);
     return;
   }
-
-  // second click within 4s -> actually execute
-  if (scope === 'month'){
-    const now = new Date();
-    const mKey = monthKey(now);
-    const log = loadLog().filter(e => monthKey(new Date(e.ts)) !== mKey);
-    saveLog(log);
-  } else {
-    saveLog([]);
-  }
   disarm();
-  document.getElementById('settingsPanel').classList.remove('show');
+  onConfirm();
+}
+
+function handleReset(scope, btn){
+  armOrConfirm('reset:' + scope, btn, 'Bấm lần nữa để xác nhận', () => {
+    if (scope === 'month'){
+      const now = new Date();
+      const mKey = monthKey(now);
+      const log = loadLog().filter(e => monthKey(new Date(e.ts)) !== mKey);
+      saveLog(log);
+    } else {
+      saveLog([]);
+    }
+    document.getElementById('settingsPanel').classList.remove('show');
+    render();
+  });
+}
+
+function decrementType(type){
+  const log = loadLog();
+  for (let i = log.length - 1; i >= 0; i--){
+    if (log[i].type === type){
+      log.splice(i, 1);
+      break;
+    }
+  }
+  saveLog(log);
   render();
+}
+
+function handleClearType(type, btn){
+  armOrConfirm('clear:' + type, btn, '✓?', () => {
+    const log = loadLog().filter(e => e.type !== type);
+    saveLog(log);
+    render();
+  });
 }
 
 function toggleSettings(){
@@ -408,6 +454,10 @@ function render(){
       <div class="bar-label">${item.key}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${pct}%; ${item.count===0?'background:#333;':''}"></div></div>
       <div class="bar-count">${item.count}</div>
+      <div class="bar-controls">
+        <button class="bar-btn" title="Bớt 1 lần gần nhất" onclick="decrementType('${item.key}')">−</button>
+        <button class="bar-btn" title="Xoá hết loại này" onclick="handleClearType('${item.key}', this)">🗑</button>
+      </div>
     `;
     barsWrap.appendChild(row);
   });
